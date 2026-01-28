@@ -282,41 +282,106 @@ def create_multi_view(mesh_path: str, measurements: dict = None,
                       output_path: str = None):
     """
     Create a multi-view image with front, side, and back views.
+    Uses PyVista if available, otherwise falls back to matplotlib.
     """
     import trimesh
     
     print("Creating multi-view visualization...")
     mesh = trimesh.load(mesh_path, process=False)
     
-    if not PYVISTA_AVAILABLE:
-        print("PyVista required for multi-view. Install with: pip install pyvista")
+    # Try PyVista first (better quality)
+    if PYVISTA_AVAILABLE and os.environ.get('DISPLAY') is not None:
+        # Convert to PyVista
+        faces = np.hstack([[3] + list(f) for f in mesh.faces])
+        pv_mesh = pv.PolyData(mesh.vertices, faces)
+        
+        # Create plotter with subplots
+        plotter = pv.Plotter(shape=(1, 3), off_screen=(output_path is not None))
+        
+        views = [
+            ('Front', 'xy'),
+            ('Side', 'xz'),
+            ('Back', '-xy'),
+        ]
+        
+        for i, (title, view) in enumerate(views):
+            plotter.subplot(0, i)
+            plotter.add_mesh(pv_mesh, color='wheat', smooth_shading=True)
+            plotter.camera_position = view
+            plotter.add_text(title, font_size=12)
+        
+        if output_path:
+            plotter.screenshot(output_path)
+            print(f"Multi-view saved: {output_path}")
+            plotter.close()
+        else:
+            plotter.show()
         return
     
-    # Convert to PyVista
-    faces = np.hstack([[3] + list(f) for f in mesh.faces])
-    pv_mesh = pv.PolyData(mesh.vertices, faces)
+    # Fallback to matplotlib (works in headless mode)
+    if not MATPLOTLIB_AVAILABLE:
+        print("Error: Matplotlib required for multi-view in headless mode.")
+        print("Install with: pip install matplotlib")
+        return
     
-    # Create plotter with subplots
-    plotter = pv.Plotter(shape=(1, 3), off_screen=(output_path is not None))
+    from mpl_toolkits.mplot3d import Axes3D
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+    
+    print("Using matplotlib for multi-view (headless mode)...")
+    
+    # Sample faces for faster rendering
+    max_faces = 3000
+    if len(mesh.faces) > max_faces:
+        idx = np.random.choice(len(mesh.faces), max_faces, replace=False)
+        faces_to_plot = mesh.faces[idx]
+    else:
+        faces_to_plot = mesh.faces
+    
+    # Create figure with 3 subplots
+    fig = plt.figure(figsize=(15, 6))
     
     views = [
-        ('Front', 'xy'),
-        ('Side', 'xz'),
-        ('Back', '-xy'),
+        ('Front', (0, 0)),      # azim=0, elev=0
+        ('Side', (90, 0)),     # azim=90, elev=0
+        ('Back', (180, 0)),    # azim=180, elev=0
     ]
     
-    for i, (title, view) in enumerate(views):
-        plotter.subplot(0, i)
-        plotter.add_mesh(pv_mesh, color='wheat', smooth_shading=True)
-        plotter.camera_position = view
-        plotter.add_text(title, font_size=12)
+    # Calculate bounds once
+    bounds = mesh.bounds
+    max_range = np.max(bounds[1] - bounds[0])
+    center = (bounds[0] + bounds[1]) / 2
+    
+    for i, (title, (azim, elev)) in enumerate(views):
+        ax = fig.add_subplot(1, 3, i + 1, projection='3d')
+        
+        # Create polygon collection
+        verts = mesh.vertices[faces_to_plot]
+        poly = Poly3DCollection(verts, alpha=0.9)
+        poly.set_facecolor('wheat')
+        poly.set_edgecolor('gray')
+        poly.set_linewidth(0.05)
+        
+        ax.add_collection3d(poly)
+        
+        # Set axis limits
+        ax.set_xlim(center[0] - max_range/2, center[0] + max_range/2)
+        ax.set_ylim(center[1] - max_range/2, center[1] + max_range/2)
+        ax.set_zlim(center[2] - max_range/2, center[2] + max_range/2)
+        
+        # Set view angle
+        ax.view_init(elev=elev, azim=azim)
+        ax.set_title(title, fontsize=14, fontweight='bold')
+        ax.axis('off')
+    
+    plt.tight_layout()
     
     if output_path:
-        plotter.screenshot(output_path)
+        plt.savefig(output_path, dpi=150, bbox_inches='tight', 
+                    facecolor='white', edgecolor='none')
         print(f"Multi-view saved: {output_path}")
-        plotter.close()
+        plt.close()
     else:
-        plotter.show()
+        plt.show()
 
 
 def main():
@@ -376,7 +441,18 @@ Examples:
     # Select backend
     backend = args.backend
     if backend == 'auto':
-        if PYVISTA_AVAILABLE:
+        # Check if we're in headless mode (screenshot only, no display)
+        headless = args.screenshot is not None and os.environ.get('DISPLAY') is None
+        
+        if headless:
+            # In headless mode, prefer matplotlib (works without DISPLAY)
+            if MATPLOTLIB_AVAILABLE:
+                backend = 'matplotlib'
+            else:
+                print("Error: Matplotlib required for headless screenshot mode.")
+                print("Install with: pip install matplotlib")
+                sys.exit(1)
+        elif PYVISTA_AVAILABLE:
             backend = 'pyvista'
         elif OPEN3D_AVAILABLE:
             backend = 'open3d'

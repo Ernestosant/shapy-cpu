@@ -19,7 +19,8 @@ This fork dockerizes the SHAPY body shape estimation model for CPU inference, re
 - **`docker-compose.yml`** - Easy deployment with volume mounts
 - **`infer.py`** - Unified inference script with gender selection
 - **`detect_keypoints.py`** - MediaPipe-based keypoint detection (replaces OpenPose)
-- **`visualize.py`** - 3D mesh visualization script
+- **`viewer_app.py`** - **NEW** Cross-platform desktop 3D viewer (PyQt5) ✅
+- **`visualize.py`** - CLI-based visualization script for Docker
 - **`setup_data.py`** - Data folder organization utility
 - **`body_measurements/`** - CPU-compatible measurements module
 
@@ -61,6 +62,44 @@ docker-compose run shapy --image /app/input/photo.jpg --gender neutral  # Defaul
 docker-compose run shapy --image /app/input/photo.jpg --gender female
 docker-compose run shapy --image /app/input/photo.jpg --gender male
 ```
+
+---
+
+## 🖥️ SHAPY Body Viewer (Desktop App)
+
+A modern, cross-platform (Windows/Linux) desktop application to visualize the generated models and anthropometric measurements interactively.
+
+### Features
+- **Interactive 3D**: Rotate, Zoom and Pan the body mesh.
+- **Anthropometric Data**: Real-time display of Height, Weight, Chest, Waist, Hips and BMI.
+- **Modern UI**: Professional dark theme with advanced lighting.
+- **Orientation Fix**: Automatically corrects SMPL-X mesh orientation for easy viewing.
+
+### Installation (Host Machine)
+You need to install the viewer dependencies on your local machine (not inside Docker) to run the GUI:
+
+```bash
+# 1. Create a virtual environment
+python -m venv venv_viewer
+
+# 2. Activate it (Windows)
+.\venv_viewer\Scripts\Activate.ps1
+
+# 3. Install dependencies
+pip install PyQt5 pyvista pyvistaqt trimesh numpy
+```
+
+### Usage
+Run the viewer providing the path to the generated `.obj` file:
+
+```bash
+python viewer_app.py --mesh output/example_02.obj
+```
+
+> [!NOTE]
+> The app will automatically try to find a `_measurements.json` file in the same directory as the mesh.
+
+---
 
 ---
 

@@ -189,3 +189,5 @@ samples/a2s_fit/
 # CUDA-only module (not used in CPU version)
 mesh-mesh-intersection/build/
 mesh-mesh-intersection/*.egg-info/
+
+venv_viewer/

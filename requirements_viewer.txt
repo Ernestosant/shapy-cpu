@@ -1,0 +1,17 @@
+# SHAPY Body Viewer - Requirements
+# Cross-platform 3D visualization application
+#
+# Install with: pip install -r requirements_viewer.txt
+
+# Qt GUI framework
+PyQt5>=5.15.0
+
+# 3D visualization
+pyvista>=0.38.0
+pyvistaqt>=0.9.0
+
+# Mesh loading
+trimesh>=3.9.0
+
+# Core dependencies
+numpy>=1.19.0

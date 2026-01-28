@@ -1,0 +1,90 @@
+# ==============================================================================
+# SHAPY CPU Docker Compose
+# ==============================================================================
+# Easy deployment for body shape estimation from RGB images.
+#
+# Usage:
+#   docker-compose build
+#   docker-compose run shapy --image /app/input/example_01.jpg --gender neutral
+#   docker-compose run shapy --image /app/input/example_01.jpg --gender female
+#   docker-compose run shapy --image /app/input/example_01.jpg --gender male
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  # Main inference service
+  shapy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: shapy-cpu:latest
+    container_name: shapy-inference
+
+    volumes:
+      # Mount data folder (created by setup_data.py) as data volume (read-only)
+      - ./data:/app/data:ro
+      # Input images
+      - ./input:/app/input:ro
+      # Output folder (writable)
+      - ./output:/app/output
+
+    # Default command - override with docker-compose run
+    command:
+      - "--image"
+      - "/app/input/example_01.jpg"
+      - "--output"
+      - "/app/output/"
+      - "--gender"
+      - "neutral"
+
+    # Resource limits (adjust based on your system)
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 8G
+
+    # Environment variables
+    environment:
+      - OMP_NUM_THREADS=4
+      - MKL_NUM_THREADS=4
+      - PYOPENGL_PLATFORM=osmesa
+
+  # Batch processing service
+  shapy-batch:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: shapy-cpu:latest
+    container_name: shapy-batch
+
+    volumes:
+      - ./data:/app/data:ro
+      - ./input:/app/input:ro
+      - ./output:/app/output
+
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        for img in /app/input/*.jpg /app/input/*.png; do
+          if [ -f "$$img" ]; then
+            echo "Processing: $$img"
+            python infer.py --image "$$img" --output /app/output/ --gender neutral
+          fi
+        done
+        echo "Batch processing complete!"
+
+    environment:
+      - OMP_NUM_THREADS=4
+      - PYOPENGL_PLATFORM=osmesa
+
+# ==============================================================================
+# Volume definitions (optional, for named volumes)
+# ==============================================================================
+# volumes:
+#   shapy-data:
+#     driver: local
+#   shapy-output:
+#     driver: local
